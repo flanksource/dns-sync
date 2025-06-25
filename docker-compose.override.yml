@@ -1,0 +1,35 @@
+# Docker Compose override for development
+# Use: docker-compose -f docker-compose.yml -f docker-compose.override.yml up
+
+version: '3.8'
+
+services:
+  dns-sync:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder  # Stop at builder stage for development
+
+    # Override entrypoint for development
+    entrypoint: ["go", "run", "cmd/dns-sync/main.go"]
+
+    # Mount source code for live reloading
+    volumes:
+      - .:/app
+      - ./config.yaml:/app/config.yaml:ro
+      - go-mod-cache:/go/pkg/mod
+
+    # Working directory
+    working_dir: /app
+
+    # Environment for development
+    environment:
+      - CGO_ENABLED=0
+      - GOOS=linux
+      - LOG_LEVEL=debug
+
+    # Enable debugging
+    command: ["-config", "config.yaml", "-log-level", "debug"]
+
+volumes:
+  go-mod-cache:

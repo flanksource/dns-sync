@@ -1,0 +1,35 @@
+# golangci-lint configuration file
+# See https://golangci-lint.run/usage/configuration/
+
+linters:
+  enable:
+    - bodyclose
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - typecheck
+    - unused
+    - gofmt
+    - goimports
+    - misspell
+    - unconvert
+    - goconst
+    - gocyclo
+    - gosec
+    - revive
+    - stylecheck
+
+  disable:
+    - deadcode
+    - varcheck
+    - structcheck
+
+run:
+  timeout: 5m
+  tests: true
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

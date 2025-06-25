@@ -1,0 +1,15 @@
+$ORIGIN example.com.     ; designates the start of this zone file in the namespace
+example.com.  IN  MX    10 mail.example.com.  ; mail.example.com is the mailserver for example.com
+@             IN  MX    20 mail2.example.com. ; equivalent to above line, "@" represents zone origin
+example.com.     IN  MX    50 mail3              ; equivalent to above line, but using a relative host name
+www       IN  A      192.0.2.80
+www       IN  A      192.0.2.81
+www       IN  A      192.0.2.82
+api       IN  AAAA   2001:db8::90
+api       IN  AAAA   2001:db8::91
+
+;──────────────────────── Service discovery (multi-target SRV) ───
+; _ldap._tcp — two primaries (equal weight) + one backup
+_ldap._tcp  IN  SRV  0 50 389 ldap1.example.com.     ; priority 0, weight 50
+_ldap._tcp  IN  SRV  0 51 389 ldap2.example.com.     ; priority 0, weight 50
+_ldap._tcp  IN  SRV 10 0 389 ldap-backup.example.com. ; priority 10 (used after primaries)

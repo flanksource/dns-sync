@@ -1,0 +1,38 @@
+# DNS Sync Configuration Example
+# This file demonstrates all available configuration options for the DNS sync application
+
+# Global application settings
+log_level: "debug" # Log level: debug, info, warn, error
+log_format: "text" # Log format: text, json
+metrics_address: ":7979" # Prometheus metrics server address
+request_timeout: "30s" # Timeout for external API calls
+
+# Synchronization settings
+sync:
+  interval: "5m" # How often to perform full synchronization
+  enable_notify: true # Enable DNS NOTIFY support for real-time updates
+  notify_port: 5353 # Port to listen for DNS NOTIFY messages
+  dry_run: false # Test mode - shows what would be changed without making changes
+  delete_orphaned: true # Remove records from target that don't exist in source
+  record_ttl: 300 # Override TTL for all records (0 = use source TTL)
+
+# Zone configurations
+zones:
+  # Example 1: Sync from RFC2136 (BIND) to AWS Route53
+  - name: "example.com"
+
+    # Source configuration (RFC2136/BIND server with TSIG)
+    source:
+      file:
+        path: fixtures/zones.bind
+
+    targets:
+      - file:
+          path: fixtures/target.bind
+
+    # Record filtering
+    record_filter:
+      include_types: ["A", "AAAA", "CNAME", "MX", "TXT", "SRV", "CNAME"]
+      exclude_types: ["NS", "SOA"]
+      # include_names: ["*.api.example.com", "www.example.com"]
+      # exclude_names: ["temp.*", "test.*"]

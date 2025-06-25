@@ -1,0 +1,263 @@
+# DNS Sync Configuration Example
+# This file demonstrates all available configuration options for the DNS sync application
+
+# Global application settings
+log_level: "info" # Log level: debug, info, warn, error
+log_format: "text" # Log format: text, json
+metrics_address: ":7979" # Prometheus metrics server address
+request_timeout: "30s" # Timeout for external API calls
+
+# Synchronization settings
+sync:
+  interval: "5m" # How often to perform full synchronization
+  enable_notify: true # Enable DNS NOTIFY support for real-time updates
+  notify_port: 5353 # Port to listen for DNS NOTIFY messages
+  dry_run: false # Test mode - shows what would be changed without making changes
+  delete_orphaned: true # Remove records from target that don't exist in source
+  record_ttl: 300 # Override TTL for all records (0 = use source TTL)
+
+# Zone configurations
+zones:
+  # Example 1: Sync from RFC2136 (BIND) to AWS Route53
+  - name: "example.com"
+
+    # Source configuration (RFC2136/BIND server with TSIG)
+    source:
+      rfc2136:
+        host: "192.168.1.10"
+        port: 53
+        zone: "example.com"
+        insecure: false
+        tsig_key_name: "dns-sync-key"
+        tsig_secret: "base64-encoded-secret"
+        tsig_secret_alg: "hmac-sha256"
+        taxfr: true # Use AXFR for zone transfer
+        min_ttl: 30
+        create_ptr: false
+        use_tls: true
+        skip_tls_verify: false
+        ca_file_path: "/etc/ssl/certs/ca.pem"
+        client_cert_file_path: "/etc/ssl/certs/client.pem"
+        client_cert_key_file_path: "/etc/ssl/private/client-key.pem"
+        batch_change_size: 1000
+        load_balancing_strategy: "round_robin"
+
+    # Target configurations
+    targets:
+      # AWS Route53 target
+      - aws:
+          zone_type: "private" # public or private
+          zone_tag_filter:
+            - "Environment=production"
+            - "Team=infrastructure"
+          profiles: ["default"]
+          assume_role: "arn:aws:iam::123456789012:role/dns-sync-role"
+          assume_role_external_id: "external-id-123"
+          batch_change_size: 1000
+          batch_change_size_bytes: 32000
+          batch_change_size_values: 1000
+          batch_change_interval: "1s"
+          evaluate_target_health: true
+          prefer_cname: false
+          zone_cache_duration: "1h"
+          zone_match_parent: false
+
+    # Record filtering
+    record_filter:
+      include_types: ["A", "AAAA", "CNAME", "MX", "TXT", "SRV"]
+      exclude_types: ["NS", "SOA"]
+      include_names: ["*.api.example.com", "www.example.com"]
+      exclude_names: ["temp.*", "test.*"]
+
+  # Example 2: Sync from PowerDNS to Multiple Providers
+  - name: "internal.company.com"
+
+    # Source configuration (PowerDNS)
+    source:
+      powerdns:
+        server: "https://pdns.company.com:8081"
+        server_id: "localhost"
+        api_key: "your-powerdns-api-key"
+        skip_tls_verify: false
+        ca_file_path: "/etc/ssl/certs/pdns-ca.pem"
+        client_cert_file_path: "/etc/ssl/certs/pdns-client.pem"
+        client_cert_key_file_path: "/etc/ssl/private/pdns-client-key.pem"
+
+    targets:
+      # Azure DNS target
+      - azure:
+          config_file: "/etc/azure/config.json"
+          resource_group: "dns-resources"
+          subscription_id: "12345678-1234-1234-1234-123456789012"
+          client_id: "azure-client-id"
+          active_directory_authority_host: "https://login.microsoftonline.com/"
+          zones_cache_duration: "1h"
+
+      # Cloudflare target
+      - cloudflare:
+          proxied: false
+          custom_hostnames: false
+          custom_hostnames_min_tls_version: "1.2"
+          custom_hostnames_certificate_authority: "lets_encrypt"
+          dns_records_per_page: 100
+          region_key: "us-east-1"
+
+    record_filter:
+      include_types: ["A", "AAAA", "CNAME"]
+
+  # Example 3: Google Cloud DNS with domain filtering
+  - name: "gcp.example.org"
+
+    source:
+      google:
+        project: "my-gcp-project"
+        batch_change_size: 1000
+        batch_change_interval: "1s"
+        zone_visibility: "private"
+
+    targets:
+      # DigitalOcean target
+      - digitalocean:
+          api_page_size: 200
+
+      # OVH target
+      - ovh:
+          endpoint: "ovh-eu"
+          api_rate_limit: 10
+          enable_cname_relative: false
+
+  # Example 4: Multi-provider setup with various sources
+  - name: "multi.example.net"
+
+    source:
+      # Akamai source
+      akamai:
+        service_consumer_domain: "example-123456.luna.akamaiapis.net"
+        client_token: "akab-client-token"
+        client_secret: "client-secret"
+        access_token: "akab-access-token"
+        edgerc_path: "/home/user/.edgerc"
+        edgerc_section: "default"
+
+    targets:
+      # OCI target
+      - oci:
+          config_file: "/home/user/.oci/config"
+          auth_instance_principal: false
+          compartment_ocid: "ocid1.compartment.oc1..aaaa"
+          zone_scope: "GLOBAL"
+          zone_cache_duration: "30m"
+
+      # NS1 target
+      - ns1:
+          endpoint: "https://api.nsone.net/v1/"
+          ignore_ssl: false
+          min_ttl_seconds: 60
+
+      # TransIP target
+      - transip:
+          account_name: "your-transip-account"
+          private_key_file: "/etc/transip/private.key"
+
+  # Example 5: Development/Testing setup
+  - name: "dev.example.com"
+
+    source:
+      # CoreDNS/SkyDNS source
+      coredns:
+        prefix: "/skydns/"
+
+    targets:
+      # In-memory provider for testing
+      - inmemory:
+          zones:
+            - "dev.example.com"
+            - "test.example.com"
+
+      # Webhook provider
+      - webhook:
+          provider_url: "https://webhook.example.com/dns"
+
+  # Example 6: Enterprise setup with multiple cloud providers
+  - name: "enterprise.corp"
+
+    source:
+      # IBM Cloud source
+      ibmcloud:
+        config_file: "/etc/ibm/config.json"
+        proxied: false
+
+    targets:
+      # GoDaddy target
+      - godaddy:
+          ttl: 3600
+          api_key: "godaddy-api-key"
+          secret_key: "godaddy-secret-key"
+          ote: false # Use production environment
+
+      # Exoscale target
+      - exoscale:
+          api_environment: "api"
+          api_zone: "ch-gva-2"
+          api_key: "EXO-api-key"
+          api_secret: "exoscale-api-secret"
+
+      # AlibabaCloud target
+      - alibabacloud:
+          config_file: "/etc/alibabacloud/config.json"
+          zone_type: "public"
+
+      # TencentCloud target
+      - tencentcloud:
+          config_file: "/etc/tencentcloud/config.json"
+          zone_type: "public"
+
+  # Example 7: Pi-hole and Plural providers
+  - name: "homelab.local"
+
+    source:
+      pihole:
+        server: "http://192.168.1.100"
+        password: "pihole-admin-password"
+        tls_insecure_skip_verify: false
+        api_version: "v1"
+
+    targets:
+      # Plural target
+      - plural:
+          cluster: "homelab-cluster"
+          provider: "aws"
+# Additional configuration examples for specific scenarios:
+
+# Environment-specific configurations can be achieved using multiple config files
+# or by using environment variable substitution in the YAML file.
+
+# For TSIG authentication with BIND servers:
+# 1. Generate TSIG key: tsig-keygen dns-sync-key
+# 2. Add to BIND configuration:
+#    key "dns-sync-key" {
+#        algorithm hmac-sha256;
+#        secret "base64-encoded-secret";
+#    };
+# 3. Allow zone transfers:
+#    zone "example.com" {
+#        type master;
+#        file "/etc/bind/zones/example.com";
+#        allow-transfer { key dns-sync-key; };
+#        notify yes;
+#    };
+
+# For AWS IAM permissions, the assumed role should have:
+# - route53:ListHostedZones
+# - route53:GetHostedZone
+# - route53:ListResourceRecordSets
+# - route53:ChangeResourceRecordSets
+# - route53:GetChange
+
+# For Azure, ensure the service principal has:
+# - DNS Zone Contributor role on the target resource groups
+
+# For monitoring and observability:
+# - Metrics are exposed on /metrics endpoint
+# - Logs include structured fields for easy parsing
+# - Health checks available on /health endpoint

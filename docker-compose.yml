@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  dns-sync:
+    build: .
+    container_name: dns-sync
+    restart: unless-stopped
+
+    # Environment variables for AWS credentials (alternative to config file)
+    environment:
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      # - AWS_PROFILE=${AWS_PROFILE}  # Use for named profiles
+
+    # Mount configuration file
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      # Uncomment below to use AWS shared credentials
+      # - ~/.aws:/home/dns-sync/.aws:ro
+
+    # Expose DNS notify port
+    ports:
+      - "5353:5353/udp"
+
+    # Network configuration
+    networks:
+      - dns-sync-network
+
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "/dns-sync", "-version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+networks:
+  dns-sync-network:
+    driver: bridge
+
+# Optional: Include a monitoring stack
+# Uncomment the services below if you want to monitor dns-sync with Prometheus and Grafana
+
+# volumes:
+#   prometheus_data:
+#   grafana_data:
+
+# services:
+#   prometheus:
+#     image: prom/prometheus:latest
+#     container_name: dns-sync-prometheus
+#     ports:
+#       - "9090:9090"
+#     volumes:
+#       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+#       - prometheus_data:/prometheus
+#     command:
+#       - '--config.file=/etc/prometheus/prometheus.yml'
+#       - '--storage.tsdb.path=/prometheus'
+#       - '--web.console.libraries=/etc/prometheus/console_libraries'
+#       - '--web.console.templates=/etc/prometheus/consoles'
+#       - '--storage.tsdb.retention.time=200h'
+#       - '--web.enable-lifecycle'
+#     networks:
+#       - dns-sync-network
+
+#   grafana:
+#     image: grafana/grafana:latest
+#     container_name: dns-sync-grafana
+#     ports:
+#       - "3000:3000"
+#     environment:
+#       - GF_SECURITY_ADMIN_PASSWORD=admin
+#     volumes:
+#       - grafana_data:/var/lib/grafana
+#       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+#     networks:
+#       - dns-sync-network
