@@ -36,9 +36,7 @@ Thumbs.db
 # Build artifacts
 build/
 dist/
-dns-sync
-dns-sync.exe
-dns-sync-*
+*.exe
 
 # Configuration files with sensitive data
 config.local.yaml
@@ -87,6 +85,7 @@ charts/*/requirements.lock
 
 # Local development
 local/
+bin/
 dev/
 
 # Backup files
