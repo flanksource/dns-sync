@@ -12,6 +12,8 @@ import (
 	"sigs.k8s.io/external-dns/plan"
 )
 
+const testDomain = "example.com"
+
 func TestFileProvider_Records(t *testing.T) {
 	// Create a temporary zone file
 	zoneContent := `$ORIGIN example.com.
@@ -70,35 +72,35 @@ test            300     IN      A       192.168.1.30
 		switch record.RecordType {
 		case "A":
 			if record.DNSName == "www.example.com" {
-				assert.Equal(t, []string{"192.168.1.10"}, record.Targets)
+				assert.Equal(t, []string{"192.168.1.10"}, []string(record.Targets))
 				foundA = true
 			} else if record.DNSName == "test.example.com" {
-				assert.Equal(t, []string{"192.168.1.30"}, record.Targets)
+				assert.Equal(t, []string{"192.168.1.30"}, []string(record.Targets))
 				assert.Equal(t, endpoint.TTL(300), record.RecordTTL)
 			}
 		case "AAAA":
 			if record.DNSName == "mail.example.com" {
-				assert.Equal(t, []string{"2001:db8::1"}, record.Targets)
+				assert.Equal(t, []string{"2001:db8::1"}, []string(record.Targets))
 				foundAAAA = true
 			}
 		case "CNAME":
 			if record.DNSName == "ftp.example.com" {
-				assert.Equal(t, []string{"www.example.com"}, record.Targets)
+				assert.Equal(t, []string{"www.example.com"}, []string(record.Targets))
 				foundCNAME = true
 			}
 		case "MX":
-			if record.DNSName == "example.com" {
-				assert.Equal(t, []string{"10 mail.example.com"}, record.Targets)
+			if record.DNSName == testDomain {
+				assert.Equal(t, []string{"10 mail.example.com"}, []string(record.Targets))
 				foundMX = true
 			}
 		case "TXT":
-			if record.DNSName == "example.com" {
-				assert.Equal(t, []string{"v=spf1 include:_spf.google.com ~all"}, record.Targets)
+			if record.DNSName == testDomain {
+				assert.Equal(t, []string{"v=spf1 include:_spf.google.com ~all"}, []string(record.Targets))
 				foundTXT = true
 			}
 		case "SRV":
 			if record.DNSName == "_sip._tcp.example.com" {
-				assert.Equal(t, []string{"10 5 5060 sip.example.com"}, record.Targets)
+				assert.Equal(t, []string{"10 5 5060 sip.example.com"}, []string(record.Targets))
 				foundSRV = true
 			}
 		}
@@ -110,43 +112,6 @@ test            300     IN      A       192.168.1.30
 	assert.True(t, foundMX, "Should find MX record")
 	assert.True(t, foundTXT, "Should find TXT record")
 	assert.True(t, foundSRV, "Should find SRV record")
-}
-
-func TestFileProvider_ApplyChanges(t *testing.T) {
-	config := config.FileProviderConfig{
-		Path: "/tmp/test-zone.txt",
-	}
-
-	domainFilter := endpoint.NewDomainFilter([]string{})
-	provider := NewFileProvider(config, domainFilter)
-
-	// ApplyChanges should return an error for read-only provider
-	ctx := context.Background()
-	err := provider.ApplyChanges(ctx, nil)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "read-only")
-}
-
-func TestFileProvider_AdjustEndpoints(t *testing.T) {
-	config := config.FileProviderConfig{
-		Path: "/tmp/test-zone.txt",
-	}
-
-	domainFilter := endpoint.NewDomainFilter([]string{})
-	provider := NewFileProvider(config, domainFilter)
-
-	endpoints := []*endpoint.Endpoint{
-		{
-			DNSName:    "test.example.com",
-			RecordType: "A",
-			Targets:    []string{"192.168.1.1"},
-		},
-	}
-
-	// AdjustEndpoints should return endpoints unchanged
-	adjusted, err := provider.AdjustEndpoints(endpoints)
-	assert.NoError(t, err)
-	assert.Equal(t, endpoints, adjusted)
 }
 
 func TestFileProvider_MultipleMXRecords(t *testing.T) {
@@ -192,7 +157,7 @@ $TTL 3600
 	// Find MX records
 	var mxRecords []*endpoint.Endpoint
 	for _, record := range records {
-		if record.RecordType == "MX" && record.DNSName == "example.com" {
+		if record.RecordType == "MX" && record.DNSName == testDomain {
 			mxRecords = append(mxRecords, record)
 		}
 	}

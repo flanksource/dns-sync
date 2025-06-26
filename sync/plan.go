@@ -127,7 +127,7 @@ type DomainEndpoints struct {
 	candidates []*endpoint.Endpoint
 }
 
-func ResolveRecordTypes(key planKey, row *planTableRow) map[string]*DomainEndpoints {
+func ResolveRecordTypes(_ planKey, row *planTableRow) map[string]*DomainEndpoints {
 	recordsByType := make(map[string]*DomainEndpoints)
 
 	// add current records
@@ -204,10 +204,14 @@ func Calculate(p *plan.Plan) *plan.Plan {
 
 		// dns name is taken
 		if len(row.current) > 0 && len(row.candidates) > 0 {
+			// Check if current and candidates are identical
+			if len(disjoin(row.current, row.candidates)) == 0 && len(disjoin(row.candidates, row.current)) == 0 {
+				log.Debugf("No changes needed for %s", key.dnsName)
+				continue
+			}
 
-			changes.Delete = append(changes.Delete, disjoin(row.current, row.candidates)...)
-			changes.Create = append(changes.Create, disjoin(row.candidates, row.current)...)
-
+			changes.Delete = append(changes.Delete, disjoin(row.current, row.candidates)...) // Remove extra records
+			changes.Create = append(changes.Create, disjoin(row.candidates, row.current)...) // Add missing records
 		}
 	}
 
@@ -229,51 +233,10 @@ func Calculate(p *plan.Plan) *plan.Plan {
 		Changes: changes,
 		// The default for ExternalDNS is to always only consider A/AAAA and CNAMEs.
 		// Everything else is an add on or something to be considered.
-		ManagedRecords: []string{endpoint.RecordTypeA, endpoint.RecordTypeAAAA, endpoint.RecordTypeCNAME},
+		ManagedRecords: []string{endpoint.RecordTypeA, endpoint.RecordTypeAAAA, endpoint.RecordTypeCNAME, "SOA"},
 	}
 
 	return plan
-}
-
-func inheritOwner(from, to *endpoint.Endpoint) {
-	if to.Labels == nil {
-		to.Labels = map[string]string{}
-	}
-	if from.Labels == nil {
-		from.Labels = map[string]string{}
-	}
-	to.Labels[endpoint.OwnerLabelKey] = from.Labels[endpoint.OwnerLabelKey]
-}
-
-func targetChanged(desired, current *endpoint.Endpoint) bool {
-	return !desired.Targets.Same(current.Targets)
-}
-
-func shouldUpdateTTL(desired, current *endpoint.Endpoint) bool {
-	if !desired.RecordTTL.IsConfigured() {
-		return false
-	}
-	return desired.RecordTTL != current.RecordTTL
-}
-
-func shouldUpdateProviderSpecific(p *plan.Plan, desired, current *endpoint.Endpoint) bool {
-	desiredProperties := map[string]endpoint.ProviderSpecificProperty{}
-
-	for _, d := range desired.ProviderSpecific {
-		desiredProperties[d.Name] = d
-	}
-	for _, c := range current.ProviderSpecific {
-		if d, ok := desiredProperties[c.Name]; ok {
-			if c.Value != d.Value {
-				return true
-			}
-			delete(desiredProperties, c.Name)
-		} else {
-			return true
-		}
-	}
-
-	return len(desiredProperties) > 0
 }
 
 // filterRecordsForPlan removes records that are not relevant to the planner.

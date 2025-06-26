@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"os"
 	"path/filepath"
@@ -34,7 +35,7 @@ func NewFileProvider(config config.FileProviderConfig, domainFilter endpoint.Dom
 }
 
 // Records retrieves all DNS records from the zone file
-func (f *fileProvider) Records(ctx context.Context) ([]*endpoint.Endpoint, error) {
+func (f *fileProvider) Records(_ context.Context) ([]*endpoint.Endpoint, error) {
 	file, err := os.Open(f.config.Path)
 	if err != nil {
 
@@ -66,7 +67,11 @@ func (f *fileProvider) Records(ctx context.Context) ([]*endpoint.Endpoint, error
 }
 
 // ApplyChanges applies DNS record changes by updating the zone file
-func (f *fileProvider) ApplyChanges(ctx context.Context, changes *plan.Changes) error {
+func (f *fileProvider) ApplyChanges(_ context.Context, changes *plan.Changes) error {
+	if changes == nil {
+		return nil
+	}
+
 	if len(changes.Create) == 0 && len(changes.UpdateNew) == 0 && len(changes.Delete) == 0 {
 		return nil // No changes to apply
 	}
@@ -115,7 +120,17 @@ func (f *fileProvider) convertRRToEndpoint(rr dns.RR) (*endpoint.Endpoint, error
 
 	// Skip SOA records as they're not typically managed by external-dns
 	if header.Rrtype == dns.TypeSOA {
-		return nil, nil
+		soa, ok := rr.(*dns.SOA)
+		if !ok {
+			return nil, fmt.Errorf("failed to cast SOA record")
+		}
+		targets := []string{fmt.Sprintf("%s %d", strings.TrimSuffix(soa.Ns, "."), soa.Serial)}
+		return &endpoint.Endpoint{
+			DNSName:    strings.TrimSuffix(header.Name, "."),
+			RecordType: dns.TypeToString[header.Rrtype],
+			Targets:    targets,
+			RecordTTL:  endpoint.TTL(f.getDefaultTTL(header.Ttl)),
+		}, nil
 	}
 
 	// Get the DNS name and remove trailing dot
@@ -155,10 +170,18 @@ func (f *fileProvider) convertRRToEndpoint(rr dns.RR) (*endpoint.Endpoint, error
 		DNSName:    dnsName,
 		RecordType: recordType,
 		Targets:    targets,
-		RecordTTL:  endpoint.TTL(header.Ttl),
+		RecordTTL:  endpoint.TTL(f.getDefaultTTL(header.Ttl)),
 	}
 
 	return endpoint, nil
+}
+
+// getDefaultTTL returns a consistent TTL value, normalizing 0 values to a default
+func (f *fileProvider) getDefaultTTL(ttl uint32) uint32 {
+	if ttl == 0 {
+		return 300 // Use the same default as endpointToRRs
+	}
+	return ttl
 }
 
 // parseZoneFile reads and parses the entire zone file into a slice of DNS resource records
@@ -223,9 +246,9 @@ func (f *fileProvider) endpointToRRs(endpoint *endpoint.Endpoint) []dns.RR {
 		dnsName += "."
 	}
 
-	ttl := uint32(endpoint.RecordTTL)
-	if ttl == 0 {
-		ttl = 300 // Default TTL
+	ttl := uint32(300)
+	if endpoint.RecordTTL > 0 && int64(endpoint.RecordTTL) < math.MaxUint32 {
+		ttl = uint32(endpoint.RecordTTL)
 	}
 
 	// Create header template
@@ -316,6 +339,16 @@ func (f *fileProvider) endpointToRRs(endpoint *endpoint.Endpoint) []dns.RR {
 				Hdr: header,
 				Ptr: ptr,
 			})
+		case "SOA":
+			parts := strings.Fields(target)
+			if len(parts) >= 2 {
+				serial, _ := strconv.ParseUint(parts[1], 10, 32)
+				rrs = append(rrs, &dns.SOA{
+					Hdr:    header,
+					Ns:     parts[0],
+					Serial: uint32(serial),
+				})
+			}
 		}
 	}
 
@@ -370,6 +403,9 @@ func (f *fileProvider) recordsMatch(rr1, rr2 dns.RR) bool {
 	case *dns.PTR:
 		ptr1, ptr2 := rr1.(*dns.PTR), rr2.(*dns.PTR)
 		return ptr1.Ptr == ptr2.Ptr
+	case *dns.SOA:
+		soa1, soa2 := rr1.(*dns.SOA), rr2.(*dns.SOA)
+		return soa1.Ns == soa2.Ns && soa1.Serial == soa2.Serial
 	default:
 		// For other record types, fall back to string comparison
 		return strings.TrimSpace(strings.TrimPrefix(rr1.String(), h1.String())) ==
