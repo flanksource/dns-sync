@@ -1,7 +1,6 @@
-# Multi-stage Dockerfile for dns-sync
-
-# Build stage
 FROM golang:1.23-alpine AS builder
+
+ARG TARGETARCH
 
 # Install necessary packages
 RUN apk add --no-cache git ca-certificates tzdata
@@ -27,6 +26,8 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
 
 # Final stage
 FROM scratch AS production
+
+ARG TARGETARCH
 
 # Import from builder
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
