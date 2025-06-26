@@ -19,7 +19,7 @@ COPY . .
 
 # Build the application
 ARG VERSION=dev
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags="-w -s -X main.version=${VERSION} -extldflags '-static'" \
     -a -installsuffix cgo \
     -o dns-sync cmd/dns-sync/main.go
