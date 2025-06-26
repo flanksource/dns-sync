@@ -238,7 +238,7 @@ func (s *Synchronizer) filterRecords(records []*endpoint.Endpoint, filter config
 }
 
 // transformRecords applies transformations to records
-func (s *Synchronizer) transformRecords(records []*endpoint.Endpoint, zoneConfig config.ZoneConfig) []*endpoint.Endpoint {
+func (s *Synchronizer) transformRecords(records []*endpoint.Endpoint, _ config.ZoneConfig) []*endpoint.Endpoint {
 	var transformed []*endpoint.Endpoint
 
 	for _, record := range records {
@@ -254,16 +254,6 @@ func (s *Synchronizer) transformRecords(records []*endpoint.Endpoint, zoneConfig
 	}
 
 	return transformed
-}
-
-// findZoneConfig finds a zone configuration by name
-func (s *Synchronizer) findZoneConfig(zoneName string) config.ZoneConfig {
-	for _, zoneConfig := range s.config.Zones {
-		if zoneConfig.Name == zoneName {
-			return *zoneConfig
-		}
-	}
-	return config.ZoneConfig{}
 }
 
 // matchesPattern checks if a name matches a pattern (supports basic wildcards)

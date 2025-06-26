@@ -21,11 +21,11 @@ linters:
     - revive
     - stylecheck
 
-  disable:
-    - deadcode
-    - varcheck
-    - structcheck
-
+  exclusions:
+    rules:
+      - linters:
+          - gosec
+        text: G115
 run:
   timeout: 5m
   tests: true

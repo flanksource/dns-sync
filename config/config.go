@@ -30,7 +30,7 @@ type Config struct {
 	Sync SyncConfig `yaml:"sync" json:"sync"`
 }
 
-type ConfigSpec Config
+type Spec Config
 
 // SyncConfig contains synchronization settings
 type SyncConfig struct {
@@ -97,38 +97,39 @@ type ProviderConfig struct {
 
 func (p ProviderConfig) String() string {
 	if p.AWS != nil {
-		return fmt.Sprintf("AWS")
+		return "AWS"
 	} else if p.Azure != nil {
 		return fmt.Sprintf("Azure{sub=%s}", p.Azure.SubscriptionID)
 	} else if p.DigitalOcean != nil {
-		return fmt.Sprintf("DigitalOcean{}")
+		return "DigitalOcean{}"
 	} else if p.IBMCloud != nil {
-		return fmt.Sprintf("IBMCloud")
+		return "IBMCloud"
 	} else if p.GoDaddy != nil {
-		return fmt.Sprintf("GoDaddy")
+		return "GoDaddy"
 	} else if p.Exoscale != nil {
-		return fmt.Sprintf("Exoscale")
+		return "Exoscale"
 	} else if p.RFC2136 != nil {
 		return fmt.Sprintf("RFC2136{host=%s,tsig=%s}", p.RFC2136.Host, p.RFC2136.TSIGKeyName)
 	} else if p.AlibabaCloud != nil {
-		return fmt.Sprintf("AlibabaCloud")
+		return "AlibabaCloud"
 	} else if p.TencentCloud != nil {
-		return fmt.Sprintf("TencentCloud")
+		return "TencentCloud"
 	} else if p.CloudFoundry != nil {
-		return fmt.Sprintf("CloudFoundry")
+		return "CloudFoundry"
 	} else if p.CoreDNS != nil {
-		return fmt.Sprintf("CoreDNS")
+		return "CoreDNS"
 	} else if p.Cloudflare != nil {
+		return "Cloudflare"
 	} else if p.TransIP != nil {
-		return fmt.Sprintf("TransIP")
+		return "TransIP"
 	} else if p.Pihole != nil {
-		return fmt.Sprintf("Pihole")
+		return "Pihole"
 	} else if p.Plural != nil {
-		return fmt.Sprintf("Plural")
+		return "Plural"
 	} else if p.Webhook != nil {
-		return fmt.Sprintf("Webhook")
+		return "Webhook"
 	} else if p.InMemory != nil {
-		return fmt.Sprintf("InMemory")
+		return "InMemory"
 	} else if p.File != nil {
 		return fmt.Sprintf("File{%s}", p.File.Path)
 	}
