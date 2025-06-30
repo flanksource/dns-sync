@@ -1,6 +1,7 @@
 project_name: dns-sync
 builds:
-  - goos:
+  - main: ./cmd/dns-sync
+    goos:
       - linux
       - windows
       - darwin
