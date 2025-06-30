@@ -1,0 +1,30 @@
+project_name: dns-sync
+builds:
+  - goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+dockers:
+  - image_templates: ["ghcr.io/flanksource/dns-sync:{{ .Version }}"]
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - --label=org.opencontainers.image.title={{ .ProjectName }}
+      - --label=org.opencontainers.image.description={{ .ProjectName }}
+      - --label=org.opencontainers.image.url=https://github.com/flanksource/dns-sync
+      - --label=org.opencontainers.image.source=https://github.com/flanksource/dns-sync
+      - --label=org.opencontainers.image.version={{ .Version }}
+      - --label=org.opencontainers.image.created={{ time "2006-01-02T15:04:05Z07:00" }}
+      - --label=org.opencontainers.image.revision={{ .FullCommit }}
+      - --label=org.opencontainers.image.licenses=Apache-2.0
+nfpms:
+  - maintainer: Carlos A Becker <root@carlosbecker.dev>
+    description: Sample project.
+    homepage: https://github.com/caarlos0/tasktimer
+    license: MIT
+    formats:
+      - deb
+      - rpm
+      - apk
