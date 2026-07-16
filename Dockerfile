@@ -1,9 +1,11 @@
-FROM golang:1.24-alpine AS builder
+FROM golang:1.26.1-bookworm@sha256:ab3d6955bbc813a0f3fdf220c1d817dd89c0b3f283777db8ece4a32fe7858edd AS builder
 
 ARG TARGETARCH
 
 # Install necessary packages
-RUN apk add --no-cache git ca-certificates tzdata
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends git ca-certificates tzdata && \
+    rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
@@ -49,4 +51,3 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 EXPOSE 5353/udp
 ENTRYPOINT ["/dns-sync"]
 CMD ["-config", "/app/config.yaml"]
-
